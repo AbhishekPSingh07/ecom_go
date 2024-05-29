@@ -13,18 +13,20 @@ import (
 type Handler struct {
 	store        types.OrderStore
 	productStore types.ProductStore
+	userStore types.User
 }
 
-func NewHandler(store types.OrderStore, productStore types.ProductStore) *Handler {
-	return &Handler{store: store, productStore: productStore}
+func NewHandler(store types.OrderStore, productStore types.ProductStore, userStore types.User) *Handler {
+	return &Handler{store: store, productStore: productStore, userStore: userStore}
 }
 
 func (h *Handler) RegisterRoutes(router *mux.Router) {
-	router.HandleFunc("/cart/checkout", h.handleCheckout).Methods(http.MethodPost)
+	router.HandleFunc("/cart/checkout", auth.WithJWTAuth(h.handleCheckout, h.userStore)).Methods(http.MethodPost)
 }
 
 func (h *Handler) handleCheckout(w http.ResponseWriter, r *http.Request) {
 	var cart types.CartCheckoutPayload
+	userID := 0
 	if err := utils.ParseJSON(r, &cart); err != nil {
 		utils.WriteError(w, http.StatusBadRequest, err)
 		return
@@ -46,5 +48,15 @@ func (h *Handler) handleCheckout(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		utils.WriteError(w,http.StatusInternalServerError,err)
 	}
-	fmt.Println(ps)
+	
+	orderID, totalPrice, err := h.createOrder(ps,cart.Items,userID)
+	if err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	utils.WriteJSON(w,http.StatusOK,map[string]any{
+		"total" : totalPrice,
+		"orderID" : orderID,
+	})
 }

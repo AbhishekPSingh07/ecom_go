@@ -26,6 +26,7 @@ type User struct {
 type ProductStore interface {
 	GetProducts() ([]Product, error)
 	GetProductsByIDs(ps []int) ([]Product, error)
+	UpdateProduct(Product) (error)
 }
 
 type Product struct {
