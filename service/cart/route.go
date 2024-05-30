@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/AbhishekPSingh07/ecom_go/service/auth"
 	"github.com/AbhishekPSingh07/ecom_go/types"
 	"github.com/AbhishekPSingh07/ecom_go/utils"
 	"github.com/go-playground/validator/v10"
@@ -13,10 +14,10 @@ import (
 type Handler struct {
 	store        types.OrderStore
 	productStore types.ProductStore
-	userStore types.User
+	userStore    types.UserStore
 }
 
-func NewHandler(store types.OrderStore, productStore types.ProductStore, userStore types.User) *Handler {
+func NewHandler(store types.OrderStore, productStore types.ProductStore, userStore types.UserStore) *Handler {
 	return &Handler{store: store, productStore: productStore, userStore: userStore}
 }
 
@@ -26,7 +27,8 @@ func (h *Handler) RegisterRoutes(router *mux.Router) {
 
 func (h *Handler) handleCheckout(w http.ResponseWriter, r *http.Request) {
 	var cart types.CartCheckoutPayload
-	userID := 0
+	userID := auth.GetUserIDFromContext(r.Context())
+	 
 	if err := utils.ParseJSON(r, &cart); err != nil {
 		utils.WriteError(w, http.StatusBadRequest, err)
 		return
@@ -39,24 +41,24 @@ func (h *Handler) handleCheckout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// get products
-	productIDs,err := getCartItemsIDs(cart.Items)
+	productIDs, err := getCartItemsIDs(cart.Items)
 	if err != nil {
-		utils.WriteError(w,http.StatusBadRequest,err)
+		utils.WriteError(w, http.StatusBadRequest, err)
 		return
 	}
-	ps , err := h.productStore.GetProductsByIDs(productIDs)
+	ps, err := h.productStore.GetProductsByIDs(productIDs)
 	if err != nil {
-		utils.WriteError(w,http.StatusInternalServerError,err)
+		utils.WriteError(w, http.StatusInternalServerError, err)
 	}
-	
-	orderID, totalPrice, err := h.createOrder(ps,cart.Items,userID)
+
+	orderID, totalPrice, err := h.createOrder(ps, cart.Items, userID)
 	if err != nil {
 		utils.WriteError(w, http.StatusBadRequest, err)
 		return
 	}
 
-	utils.WriteJSON(w,http.StatusOK,map[string]any{
-		"total" : totalPrice,
-		"orderID" : orderID,
+	utils.WriteJSON(w, http.StatusOK, map[string]any{
+		"total":   totalPrice,
+		"orderID": orderID,
 	})
 }
